@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Heart, Activity, Info, RotateCcw, AlertCircle } from 'lucide-react';
+import { Heart, Activity, Info, RotateCcw, AlertCircle, ChevronRight, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
-export default function App() {
+export default function LVFillingPressureApp() {
   const [step, setStep] = useState('intro');
   const [data, setData] = useState({
     lvef: '',
@@ -42,18 +42,9 @@ export default function App() {
     }
   };
 
-  const getFluxType = (ea) => {
-    if (ea < 0.8) return 'retarded';
-    if (ea >= 0.8 && ea <= 2) return 'normal';
-    if (ea > 2) return 'restrictive';
-  };
-
   const evaluateFillingPressure = () => {
     const lvef = parseFloat(data.lvef);
-    const e = parseFloat(data.eVelocity);
-    const a = parseFloat(data.aVelocity);
     const ea = parseFloat(data.eaRatio);
-    const ePrimeAvg = parseFloat(data.ePrimeAverage);
     const eePrime = parseFloat(data.eePrimeRatio);
     const tr = parseFloat(data.trVelocity);
     const lavi = parseFloat(data.laVolumeIndex);
@@ -64,7 +55,6 @@ export default function App() {
     let color = '';
     let fluxType = '';
 
-    // Détermination du type de flux
     if (ea < 0.8) {
       fluxType = 'Flux de relaxation retardée (E/A < 0.8)';
     } else if (ea >= 0.8 && ea <= 2) {
@@ -73,132 +63,115 @@ export default function App() {
       fluxType = 'Flux restrictif (E/A > 2)';
     }
 
-    // ALGORITHME SELON FEVG
     if (lvef >= 50) {
-      // FEVG NORMALE (≥50%)
       criteria.push(`FEVG normale: ${lvef}%`);
       criteria.push(fluxType);
 
       if (ea < 0.8) {
-        // Relaxation retardée - Pressions normales
         diagnosis = 'Pressions de remplissage NORMALES';
         pressure = 'PCP normale';
-        color = 'bg-green-100 border-green-500';
+        color = 'normal';
       } else if (ea > 2) {
-        // Flux restrictif - Pressions élevées
         diagnosis = 'Pressions de remplissage ÉLEVÉES';
         pressure = 'PCP élevée';
-        color = 'bg-red-100 border-red-500';
+        color = 'elevated';
         criteria.push('Flux restrictif → Pressions élevées');
       } else {
-        // Zone indéterminée (0.8 ≤ E/A ≤ 2) - Évaluation avec critères
         let positiveCount = 0;
         const subCriteria = [];
 
-        // e' moyen septal < 7 ou latéral < 10
         if (parseFloat(data.ePrimeSeptal) < 7) {
           positiveCount++;
-          subCriteria.push(`✓ e' septal < 7 cm/s (${data.ePrimeSeptal})`);
+          subCriteria.push({ text: `e' septal < 7 cm/s (${data.ePrimeSeptal})`, met: true });
         } else {
-          subCriteria.push(`✗ e' septal ≥ 7 cm/s (${data.ePrimeSeptal})`);
+          subCriteria.push({ text: `e' septal ≥ 7 cm/s (${data.ePrimeSeptal})`, met: false });
         }
 
-        // E/e' moyen > 14
         if (eePrime > 14) {
           positiveCount++;
-          subCriteria.push(`✓ E/e' moyen > 14 (${eePrime})`);
+          subCriteria.push({ text: `E/e' moyen > 14 (${eePrime})`, met: true });
         } else {
-          subCriteria.push(`✗ E/e' moyen ≤ 14 (${eePrime})`);
+          subCriteria.push({ text: `E/e' moyen ≤ 14 (${eePrime})`, met: false });
         }
 
-        // Vitesse IT > 2.8 m/s
         if (tr && tr > 2.8) {
           positiveCount++;
-          subCriteria.push(`✓ Vmax IT > 2.8 m/s (${tr})`);
+          subCriteria.push({ text: `Vmax IT > 2.8 m/s (${tr})`, met: true });
         } else if (tr) {
-          subCriteria.push(`✗ Vmax IT ≤ 2.8 m/s (${tr})`);
+          subCriteria.push({ text: `Vmax IT ≤ 2.8 m/s (${tr})`, met: false });
         }
 
-        // LAVI > 34 mL/m²
         if (lavi && lavi > 34) {
           positiveCount++;
-          subCriteria.push(`✓ LAVI > 34 mL/m² (${lavi})`);
+          subCriteria.push({ text: `LAVI > 34 mL/m² (${lavi})`, met: true });
         } else if (lavi) {
-          subCriteria.push(`✗ LAVI ≤ 34 mL/m² (${lavi})`);
+          subCriteria.push({ text: `LAVI ≤ 34 mL/m² (${lavi})`, met: false });
         }
 
-        criteria.push(`Évaluation des critères (${positiveCount}/4):`);
-        criteria.push(...subCriteria);
+        criteria.push({ title: `Évaluation des critères (${positiveCount}/4):`, subs: subCriteria });
 
         if (positiveCount >= 3) {
           diagnosis = 'Pressions de remplissage ÉLEVÉES';
           pressure = 'PCP élevée';
-          color = 'bg-red-100 border-red-500';
+          color = 'elevated';
         } else if (positiveCount <= 1) {
           diagnosis = 'Pressions de remplissage NORMALES';
           pressure = 'PCP normale';
-          color = 'bg-green-100 border-green-500';
+          color = 'normal';
         } else {
           diagnosis = 'Pressions de remplissage INDÉTERMINÉES';
-          pressure = 'Évaluation non conclusive (2/4 critères)';
-          color = 'bg-yellow-100 border-yellow-500';
+          pressure = 'Évaluation non conclusive';
+          color = 'indeterminate';
         }
       }
     } else {
-      // FEVG ALTÉRÉE (<50%)
       criteria.push(`FEVG altérée: ${lvef}%`);
       criteria.push(fluxType);
 
       if (ea < 0.8 || (ea >= 0.8 && ea < 2)) {
-        // Relaxation retardée ou pseudo-normal
         let positiveCount = 0;
         const subCriteria = [];
 
-        // E/e' moyen > 14
         if (eePrime > 14) {
           positiveCount++;
-          subCriteria.push(`✓ E/e' moyen > 14 (${eePrime})`);
+          subCriteria.push({ text: `E/e' moyen > 14 (${eePrime})`, met: true });
         } else {
-          subCriteria.push(`✗ E/e' moyen ≤ 14 (${eePrime})`);
+          subCriteria.push({ text: `E/e' moyen ≤ 14 (${eePrime})`, met: false });
         }
 
-        // Vitesse IT > 2.8 m/s
         if (tr && tr > 2.8) {
           positiveCount++;
-          subCriteria.push(`✓ Vmax IT > 2.8 m/s (${tr})`);
+          subCriteria.push({ text: `Vmax IT > 2.8 m/s (${tr})`, met: true });
         } else if (tr) {
-          subCriteria.push(`✗ Vmax IT ≤ 2.8 m/s (${tr})`);
+          subCriteria.push({ text: `Vmax IT ≤ 2.8 m/s (${tr})`, met: false });
         }
 
-        // LAVI > 34 mL/m²
         if (lavi && lavi > 34) {
           positiveCount++;
-          subCriteria.push(`✓ LAVI > 34 mL/m² (${lavi})`);
+          subCriteria.push({ text: `LAVI > 34 mL/m² (${lavi})`, met: true });
         } else if (lavi) {
-          subCriteria.push(`✗ LAVI ≤ 34 mL/m² (${lavi})`);
+          subCriteria.push({ text: `LAVI ≤ 34 mL/m² (${lavi})`, met: false });
         }
 
-        criteria.push(`Évaluation des critères (${positiveCount}/3):`);
-        criteria.push(...subCriteria);
+        criteria.push({ title: `Évaluation des critères (${positiveCount}/3):`, subs: subCriteria });
 
         if (positiveCount >= 2) {
           diagnosis = 'Pressions de remplissage ÉLEVÉES';
           pressure = 'PCP élevée';
-          color = 'bg-red-100 border-red-500';
+          color = 'elevated';
         } else if (positiveCount === 0) {
           diagnosis = 'Pressions de remplissage NORMALES';
           pressure = 'PCP normale';
-          color = 'bg-green-100 border-green-500';
+          color = 'normal';
         } else {
           diagnosis = 'Pressions de remplissage INDÉTERMINÉES';
-          pressure = 'Évaluation non conclusive (1/3 critère)';
-          color = 'bg-yellow-100 border-yellow-500';
+          pressure = 'Évaluation non conclusive';
+          color = 'indeterminate';
         }
       } else {
-        // Flux restrictif (E/A > 2)
         diagnosis = 'Pressions de remplissage ÉLEVÉES';
         pressure = 'PCP élevée';
-        color = 'bg-red-100 border-red-500';
+        color = 'elevated';
         criteria.push('Flux restrictif → Pressions élevées');
       }
     }
@@ -226,60 +199,85 @@ export default function App() {
 
   if (step === 'intro') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="flex items-center justify-center mb-6">
-              <Heart className="w-16 h-16 text-red-500" />
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white border-b border-slate-200 rounded-t-lg p-8 shadow-sm">
+            <div className="flex items-center justify-center mb-4">
+              <div className="bg-blue-50 p-4 rounded-full">
+                <Heart className="w-12 h-12 text-blue-600" strokeWidth={1.5} />
+              </div>
             </div>
-            <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
-              Pressions de Remplissage VG
+            <h1 className="text-3xl font-light text-slate-800 text-center mb-2 tracking-tight">
+              Évaluation des Pressions de Remplissage
             </h1>
-            <p className="text-center text-gray-600 mb-6">
-              Évaluation échocardiographique selon ESC 2016
+            <h2 className="text-xl font-light text-slate-600 text-center mb-1">
+              Ventricule Gauche
+            </h2>
+            <p className="text-center text-slate-500 text-sm font-light tracking-wide">
+              Protocole ESC 2016
             </p>
-            
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-              <div className="flex items-start">
-                <Info className="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-gray-700">
-                  <p className="font-semibold mb-2">Algorithme adapté à la FEVG:</p>
-                  <ul className="list-disc ml-4 space-y-1">
-                    <li><strong>FEVG ≥ 50%:</strong> Classification du flux mitral + 4 critères</li>
-                    <li><strong>FEVG {'<'} 50%:</strong> Classification du flux mitral + 3 critères</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6">
-              <div className="flex items-start">
-                <AlertCircle className="w-5 h-5 text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-gray-700">
-                  <p className="font-semibold mb-1">Types de flux mitral:</p>
-                  <ul className="list-disc ml-4 space-y-1">
-                    <li><strong>Retardé:</strong> E/A {'<'} 0.8</li>
-                    <li><strong>Pseudo-normal:</strong> 0.8 ≤ E/A ≤ 2</li>
-                    <li><strong>Restrictif:</strong> E/A {'>'} 2</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStep('measurement')}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center"
-            >
-              <Activity className="w-5 h-5 mr-2" />
-              Commencer l'évaluation
-            </button>
           </div>
-          
-          <footer className="mt-8 text-center">
-            <p className="text-sm text-gray-600 font-medium">
-              Dr Aouadi A - CMIC - Douera
-            </p>
-          </footer>
+
+          <div className="bg-white rounded-b-lg shadow-sm">
+            <div className="p-8 space-y-6">
+              <div className="border-l-2 border-blue-500 bg-blue-50 p-5">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                  <div>
+                    <h3 className="font-medium text-slate-800 mb-3">Algorithme diagnostique</h3>
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        <span><strong className="font-medium">FEVG ≥ 50%</strong> : Classification flux mitral + 4 critères</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        <span><strong className="font-medium">FEVG &lt; 50%</strong> : Classification flux mitral + 3 critères</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-l-2 border-amber-500 bg-amber-50 p-5">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                  <div>
+                    <h3 className="font-medium text-slate-800 mb-3">Classification du flux mitral</h3>
+                    <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-600"></div>
+                        <span><strong className="font-medium">Retardé</strong> : E/A &lt; 0.8</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-600"></div>
+                        <span><strong className="font-medium">Pseudo-normal</strong> : 0.8 ≤ E/A ≤ 2</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-600"></div>
+                        <span><strong className="font-medium">Restrictif</strong> : E/A &gt; 2</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setStep('measurement')}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow"
+              >
+                <Activity className="w-5 h-5" strokeWidth={2} />
+                Commencer l'évaluation
+                <ChevronRight className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50 px-8 py-4 rounded-b-lg">
+              <p className="text-center text-sm text-slate-600 font-light">
+                Dr Aouadi A • CMIC • Douera
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -287,37 +285,44 @@ export default function App() {
 
   if (step === 'measurement') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Mesures Échocardiographiques</h2>
-            
-            <div className="space-y-6">
-              {/* FEVG */}
-              <div className="border-l-4 border-red-500 pl-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Fonction Ventriculaire Gauche</h3>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white border-b border-slate-200 rounded-t-lg p-6 shadow-sm">
+            <h2 className="text-2xl font-light text-slate-800 tracking-tight">Mesures Échocardiographiques</h2>
+            <p className="text-slate-500 text-sm mt-1">Saisie des paramètres hémodynamiques</p>
+          </div>
+
+          <div className="bg-white rounded-b-lg shadow-sm p-8">
+            <div className="space-y-8">
+              <div className="border-l-2 border-rose-400 pl-6">
+                <h3 className="text-base font-medium text-slate-800 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+                  Fonction Ventriculaire Gauche
+                </h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    FEVG (%) *
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    FEVG (%) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
                     step="1"
                     value={data.lvef}
                     onChange={(e) => setData({...data, lvef: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="Ex: 55"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                    placeholder="55"
                   />
                 </div>
               </div>
 
-              {/* Flux Mitral */}
-              <div className="border-l-4 border-indigo-500 pl-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Flux Mitral (Doppler pulsé)</h3>
-                <div className="space-y-3">
+              <div className="border-l-2 border-blue-400 pl-6">
+                <h3 className="text-base font-medium text-slate-800 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                  Flux Mitral (Doppler pulsé)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Onde E (cm/s) *
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Onde E (cm/s) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -328,13 +333,13 @@ export default function App() {
                         calculateEARatio();
                         calculateEEPrimeRatio();
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 80"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="80"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Onde A (cm/s) *
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Onde A (cm/s) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -342,32 +347,35 @@ export default function App() {
                       value={data.aVelocity}
                       onChange={(e) => setData({...data, aVelocity: e.target.value})}
                       onBlur={calculateEARatio}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 100"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="100"
                     />
                   </div>
-                  {data.eaRatio && (
-                    <div className="bg-indigo-50 p-3 rounded-lg">
-                      <p className="text-sm font-semibold text-gray-700">
-                        Ratio E/A: <span className="text-indigo-600 text-lg">{data.eaRatio}</span>
-                        <span className="text-xs text-gray-600 ml-2">
-                          {parseFloat(data.eaRatio) < 0.8 ? '(Retardé)' : 
-                           parseFloat(data.eaRatio) > 2 ? '(Restrictif)' : 
-                           '(Pseudo-normal)'}
-                        </span>
-                      </p>
-                    </div>
-                  )}
                 </div>
+                {data.eaRatio && (
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">Ratio E/A</span>
+                      <span className="text-2xl font-light text-blue-600">{data.eaRatio}</span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">
+                      {parseFloat(data.eaRatio) < 0.8 ? 'Flux retardé' : 
+                       parseFloat(data.eaRatio) > 2 ? 'Flux restrictif' : 
+                       'Flux pseudo-normal'}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Doppler Tissulaire */}
-              <div className="border-l-4 border-purple-500 pl-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Doppler Tissulaire VG *</h3>
-                <div className="space-y-3">
+              <div className="border-l-2 border-purple-400 pl-6">
+                <h3 className="text-base font-medium text-slate-800 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                  Doppler Tissulaire
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      e' septal (cm/s) *
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      e' septal (cm/s) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -375,13 +383,13 @@ export default function App() {
                       value={data.ePrimeSeptal}
                       onChange={(e) => setData({...data, ePrimeSeptal: e.target.value})}
                       onBlur={calculateEPrimeAverage}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 6"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="6"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      e' latéral (cm/s) *
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      e' latéral (cm/s) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -389,31 +397,35 @@ export default function App() {
                       value={data.ePrimeLateral}
                       onChange={(e) => setData({...data, ePrimeLateral: e.target.value})}
                       onBlur={calculateEPrimeAverage}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 9"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="9"
                     />
                   </div>
-                  {data.ePrimeAverage && (
-                    <div className="bg-purple-50 p-3 rounded-lg space-y-1">
-                      <p className="text-sm font-semibold text-gray-700">
-                        e' moyen: <span className="text-purple-600 text-lg">{data.ePrimeAverage} cm/s</span>
-                      </p>
-                      {data.eePrimeRatio && (
-                        <p className="text-sm font-semibold text-gray-700">
-                          Ratio E/e': <span className="text-purple-600 text-lg">{data.eePrimeRatio}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
+                {data.ePrimeAverage && (
+                  <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-700">e' moyen</span>
+                      <span className="text-xl font-light text-purple-600">{data.ePrimeAverage} cm/s</span>
+                    </div>
+                    {data.eePrimeRatio && (
+                      <div className="flex items-center justify-between pt-2 border-t border-purple-200">
+                        <span className="text-sm font-medium text-slate-700">Ratio E/e'</span>
+                        <span className="text-xl font-light text-purple-600">{data.eePrimeRatio}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Critères additionnels */}
-              <div className="border-l-4 border-green-500 pl-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Paramètres Additionnels</h3>
-                <div className="space-y-3">
+              <div className="border-l-2 border-emerald-400 pl-6">
+                <h3 className="text-base font-medium text-slate-800 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                  Paramètres Additionnels
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       Vmax IT (m/s)
                     </label>
                     <input
@@ -421,108 +433,166 @@ export default function App() {
                       step="0.1"
                       value={data.trVelocity}
                       onChange={(e) => setData({...data, trVelocity: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 2.5"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="2.5"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Vitesse maximale de l'insuffisance tricuspide</p>
+                    <p className="text-xs text-slate-500 mt-1">Insuffisance tricuspide</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Volume OG indexé (mL/m²)
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      LAVI (mL/m²)
                     </label>
                     <input
                       type="number"
                       step="0.1"
                       value={data.laVolumeIndex}
                       onChange={(e) => setData({...data, laVolumeIndex: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="Ex: 32"
+                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-800"
+                      placeholder="32"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Left Atrial Volume Index (LAVI)</p>
+                    <p className="text-xs text-slate-500 mt-1">Volume OG indexé</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 flex gap-4">
+            <div className="mt-10 flex gap-4">
               <button
                 onClick={() => setStep('intro')}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 px-6 rounded-lg transition-all duration-200"
               >
                 Retour
               </button>
               <button
                 onClick={evaluateFillingPressure}
                 disabled={!data.lvef || !data.eVelocity || !data.aVelocity || !data.ePrimeSeptal || !data.ePrimeLateral}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:hover:bg-slate-300 flex items-center justify-center gap-2"
               >
-                Calculer
+                Calculer les résultats
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
-            
-            <p className="text-xs text-gray-500 mt-4 text-center">* Champs obligatoires</p>
-          </div>
-          
-          <footer className="mt-8 text-center">
-            <p className="text-sm text-gray-600 font-medium">
-              Dr Aouadi A - CMIC - Douera
+
+            <p className="text-xs text-slate-500 text-center mt-4">
+              <span className="text-rose-500">*</span> Champs obligatoires
             </p>
-          </footer>
+          </div>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-slate-600 font-light">
+              Dr Aouadi A • CMIC • Douera
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   if (step === 'result' && result) {
+    const getResultIcon = () => {
+      if (result.color === 'normal') return <CheckCircle2 className="w-12 h-12 text-emerald-600" strokeWidth={1.5} />;
+      if (result.color === 'elevated') return <XCircle className="w-12 h-12 text-rose-600" strokeWidth={1.5} />;
+      return <AlertTriangle className="w-12 h-12 text-amber-600" strokeWidth={1.5} />;
+    };
+
+    const getResultColor = () => {
+      if (result.color === 'normal') return 'border-emerald-500 bg-emerald-50';
+      if (result.color === 'elevated') return 'border-rose-500 bg-rose-50';
+      return 'border-amber-500 bg-amber-50';
+    };
+
+    const getResultTextColor = () => {
+      if (result.color === 'normal') return 'text-emerald-800';
+      if (result.color === 'elevated') return 'text-rose-800';
+      return 'text-amber-800';
+    };
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="text-center mb-6">
-              <Heart className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-800">Résultat de l'Évaluation</h2>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white border-b border-slate-200 rounded-t-lg p-6 shadow-sm">
+            <div className="flex items-center justify-center mb-3">
+              {getResultIcon()}
+            </div>
+            <h2 className="text-2xl font-light text-slate-800 text-center tracking-tight">Résultat de l'Évaluation</h2>
+          </div>
+
+          <div className="bg-white rounded-b-lg shadow-sm">
+            <div className="p-8">
+              <div className={`${getResultColor()} border-2 rounded-lg p-6 mb-6`}>
+                <h3 className={`text-2xl font-medium ${getResultTextColor()} mb-2`}>
+                  {result.diagnosis}
+                </h3>
+                <p className={`text-lg ${getResultTextColor()} font-light`}>
+                  {result.pressure}
+                </p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-6">
+                <h4 className="font-medium text-slate-800 mb-4 text-lg">Analyse Détaillée</h4>
+                <div className="space-y-3">
+                  {result.criteria.map((criterion, index) => {
+                    if (typeof criterion === 'string') {
+                      return (
+                        <div key={index} className="flex items-start gap-3 text-slate-700">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0"></div>
+                          <span className="text-sm">{criterion}</span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div key={index} className="space-y-2">
+                          <p className="text-sm font-medium text-slate-800">{criterion.title}</p>
+                          <div className="pl-4 space-y-2">
+                            {criterion.subs.map((sub, subIdx) => (
+                              <div key={subIdx} className="flex items-start gap-3">
+                                {sub.met ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" strokeWidth={2} />
+                                ) : (
+                                  <XCircle className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" strokeWidth={2} />
+                                )}
+                                <span className={`text-sm ${sub.met ? 'text-emerald-700 font-medium' : 'text-slate-600'}`}>
+                                  {sub.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border-l-2 border-blue-500 p-5 mb-6">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                  <div className="text-sm text-slate-700">
+                    <p className="font-medium text-slate-800 mb-1">Note clinique</p>
+                    <p className="leading-relaxed">
+                      Cette évaluation est basée sur les recommandations ESC 2016 pour l'estimation 
+                      des pressions de remplissage du ventricule gauche. L'interprétation finale doit 
+                      tenir compte du contexte clinique complet du patient et des autres paramètres hémodynamiques.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={reset}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow"
+              >
+                <RotateCcw className="w-5 h-5" strokeWidth={2} />
+                Nouvelle évaluation
+              </button>
             </div>
 
-            <div className={`${result.color} border-4 rounded-xl p-6 mb-6`}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">{result.diagnosis}</h3>
-              <p className="text-lg text-gray-700 font-semibold">{result.pressure}</p>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-6 mb-6">
-              <h4 className="font-semibold text-gray-800 mb-3 text-lg">Analyse détaillée:</h4>
-              <ul className="space-y-2">
-                {result.criteria.map((criterion, index) => (
-                  <li key={index} className="text-gray-700 flex items-start">
-                    <span className="text-indigo-500 mr-2 font-bold">•</span>
-                    <span className={criterion.includes('✓') ? 'font-semibold text-green-700' : 
-                                   criterion.includes('✗') ? 'text-gray-600' : ''}>{criterion}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-              <p className="text-sm text-gray-700">
-                <strong>Note clinique:</strong> Cette évaluation est basée sur les recommandations ESC 2016 
-                pour l'estimation des pressions de remplissage du VG. L'interprétation finale doit tenir 
-                compte du contexte clinique complet du patient et des autres paramètres hémodynamiques.
+            <div className="border-t border-slate-200 bg-slate-50 px-8 py-4 rounded-b-lg">
+              <p className="text-center text-sm text-slate-600 font-light">
+                Dr Aouadi A • CMIC • Douera
               </p>
             </div>
-
-            <button
-              onClick={reset}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center"
-            >
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Nouvelle évaluation
-            </button>
           </div>
-          
-          <footer className="mt-8 text-center">
-            <p className="text-sm text-gray-600 font-medium">
-              Dr Aouadi A - CMIC - Douera
-            </p>
-          </footer>
         </div>
       </div>
     );
